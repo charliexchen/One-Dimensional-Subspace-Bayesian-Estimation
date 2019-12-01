@@ -12,14 +12,14 @@ class Objective(object):
                  constraints,
                  n_dimensions_in,
                  n_dimensions_out = 1,
-                 params = {}):
+                 **kwargs):
         self.f = f
         self.n_dim_in = n_dimensions_in
         self.n_dim_out = n_dimensions_out
         for constraint in constraints: 
             constraint.check_bounds(n_dimensions_in)
         self.constraints = constraints
-        self.params = params
+        self.params = kwargs
 
     def __cast(self, X, req_shape):
         if isinstance(X, list): 
@@ -41,7 +41,7 @@ class Objective(object):
         f_eval = np.ma.apply_along_axis(self.f, 
                                     -1, 
                                     np.ma.array(X, mask = constraint_eval),
-                                    **{'params':self.params})
+                                    **self.params)
         f_eval = np.ma.filled(f_eval, fill_value = np.float64('NaN'))
         if self.n_dim_out == 1: 
             if len(f_eval.shape) + 1 != len(X.shape):
@@ -67,32 +67,32 @@ class Rosenbrock(Objective):
     def __init__(self, 
                  n_dimensions = 2):
 
-        def f(X, params):
-            return np.sum((100*(X[1:]-X[:-1]**2)**2 + (1-X[:-1])**2)), 5
+        def f(X, **kwargs):
+            return np.sum((100*(X[1:]-X[:-1]**2)**2 + (1-X[:-1])**2))
 
         super().__init__(f, [], n_dimensions_in = n_dimensions, 
                                 n_dimensions_out = 1, 
-                                params = {})
+                                **{})
 
 class Eggholder(Objective):
     def __init__(self): 
 
-        def f(X, params): 
+        def f(X, **kwargs): 
             return -(X[1] + 47)*np.sin(np.sqrt(np.abs(X[0]/2 + (X[1]+47)))) + \
             -X[0]*np.sin(np.sqrt(np.abs(X[0] - (X[1]+ 47))))
              
 
-        def bound_constraint(X, params):
+        def bound_constraint(X, **kwargs):
             return np.all(np.logical_or(X < -512, X > 512))
         
         constraints = [
-            Constraint(bound_constraint, params = {})
+            Constraint(bound_constraint, **{})
         ]
 
         super().__init__(f, constraints, 
                             n_dimensions_in = 2, 
                             n_dimensions_out = 1, 
-                            params = {})
+                            **{})
 
 if __name__ == "__main__":
     obj = Rosenbrock(n_dimensions = 2)

@@ -7,10 +7,9 @@ class Constraint(object):
     bounds_checked = False
     def __init__(self, 
                  f,
-                 params = {},
                  **kwargs):
         self.f = f
-        self.params = params
+        self.params = kwargs
 
     def __cast(self, X, req_shape):
         if isinstance(X, list): 
@@ -29,7 +28,7 @@ class Constraint(object):
                  X):
         if self.n_dim is not None: 
             X = self.__cast(X, self.n_dim)
-        f_eval = np.apply_along_axis(self.f, -1, X, **{'params':self.params})
+        f_eval = np.apply_along_axis(self.f, -1, X, **self.params)
         return f_eval
 
     def check_bounds(self, n_dim):
