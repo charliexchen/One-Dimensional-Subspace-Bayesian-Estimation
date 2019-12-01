@@ -43,9 +43,14 @@ class Objective(object):
                                     np.ma.array(X, mask = constraint_eval),
                                     **{'params':self.params})
         f_eval = np.ma.filled(f_eval, fill_value = np.float64('NaN'))
-        if self.n_dim_out == 1:
+        if self.n_dim_out == 1: 
+            if len(f_eval.shape) + 1 != len(X.shape):
+                raise ValueError('Objective function expected single output, got vector of length {}'.format(f_eval.shape[-1]))
             return f_eval[:, np.newaxis]
-        else: 
+        else:
+            if f_eval.shape[-1] != self.n_dim_out:
+                raise ValueError('Objective function expected vector of length {} output, got vector of length {}'.format(self.n_dim_out, 
+                                                                                                                    f_eval.shape[-1]))
             return f_eval
 
     def evaluate_constraints(self, X):
@@ -63,7 +68,7 @@ class Rosenbrock(Objective):
                  n_dimensions = 2):
 
         def f(X, params):
-            return np.sum((100*(X[1:]-X[:-1]**2)**2 + (1-X[:-1])**2))
+            return np.sum((100*(X[1:]-X[:-1]**2)**2 + (1-X[:-1])**2)), 5
 
         super().__init__(f, [], n_dimensions_in = n_dimensions, 
                                 n_dimensions_out = 1, 
@@ -96,5 +101,4 @@ if __name__ == "__main__":
     assert np.all(eval_val == 626)
     assert np.array_equal(obj.evaluate([[2, 1.5 ], [2, 1.5 ]]).shape, [2, 1])
     obj = Eggholder()
-    print(obj.evaluate([512, 404.2319]))
     assert np.allclose(obj.evaluate([512, 404.2319]), -959.6407, atol = 1e-3)
