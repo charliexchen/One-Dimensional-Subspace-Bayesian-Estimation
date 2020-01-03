@@ -50,16 +50,18 @@ class Kernel(object):
     def __increment_matrix(self, X):
         matrix = torch.empty(X.shape[0], X.shape[0])
         matrix[:-1, :-1] = self.kernel
+        increment_kernel = None
         if self.f_vectorized_increment is None:
             for i in range(X.shape[0]):
                 i_j_cov = self.f_pairwise(X[i, :], X[-1, :], self.params) 
                 matrix[-1, i] = i_j_cov
                 matrix[i, -1] = i_j_cov
+            increment_kernel = matrix[-1, :]
         else:
-            vector_increment = self.f_vectorized_increment(X, self.params)
-            matrix[-1, :] = vector_increment
-            matrix[:, -1] = vector_increment
-        return matrix
+            increment_kernel = self.f_vectorized_increment(X, self.params)
+            matrix[-1, :] = increment_kernel
+            matrix[:, -1] = increment_kernel
+        return matrix, increment_kernel
 
     def cast(self, X): 
         # Cast from numpy array
@@ -86,19 +88,23 @@ class Kernel(object):
         self.X = X
         return self
      
-    def fit_increment(self, X_inc):
+    def predict_increment(self, X_inc):
         if self.kernel is None: 
-            raise ValueError("Cannot run fit_increment before running fit on training data")
+            raise ValueError("Cannot run predict_increment before running fit on training data")
         X_inc = self.cast(X_inc)
         
         if len(X_inc.shape) != 1: 
             raise ValueError('Expected vector input but received tensor of order {} and shape {}'.format(len(X_inc.shape), X_inc.shape))
         if (X_inc.shape[-1] != self.n_dim_in):
             raise ValueError('Expected vector of dimension {}, got vector of dimension {}'.format(self.n_dim_in, X_inc.shape[-1]))
-
+      
         X_new = torch.cat([self.X, X_inc.unsqueeze(0)], 0)
-        self.kernel = self.__increment_matrix(X_new)
-        self.X = X_new
+        return self.__increment_matrix(X_new)
+
+    def fit_increment(self, X_inc):
+        kernel_new, kernel_increment = self.predict_increment(X_inc)
+        self.X = torch.cat([self.X, X_inc.unsqueeze(0)], 0)
+        self.kernel = kernel_new
         return self
 
 class SquaredExponential(Kernel):
