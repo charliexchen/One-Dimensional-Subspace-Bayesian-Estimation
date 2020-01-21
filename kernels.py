@@ -78,7 +78,9 @@ class Kernel(object):
             matrix[X.shape[0]:, :] = increment_kernel.permute(1, 0)
             matrix[:, X.shape[0]:] = increment_kernel
             X_concat = torch.cat([X, X_inc], 0)
-        return matrix, increment_kernel, X_concat
+        # Calculate kernel only on incremented set
+        X_new_kernel = self.__evaluate_matrix(X_inc)
+        return matrix, (increment_kernel[:X.shape[0], :], increment_kernel[X.shape[0]:, :]), X_new_kernel, X_concat
 
     def cast(self, X): 
         # Cast from numpy array
@@ -109,8 +111,6 @@ class Kernel(object):
         if self.kernel is None: 
             raise ValueError("Cannot run predict_increment before running fit on training data")
         X_inc = self.cast(X_inc)
-        if len(X_inc.shape) == 1:
-            X_inc = X_inc.unsqueeze(0)
         if len(X_inc.shape) != 2: 
             raise ValueError('Expected matrix input but received tensor of order {} and shape {}'.format(len(X_inc.shape), X_inc.shape))
         if (X_inc.shape[-1] != self.n_dim_in):
@@ -118,7 +118,7 @@ class Kernel(object):
         return self.__increment_matrix(self.X, X_inc)
 
     def fit_increment(self, X_inc):
-        matrix_new, _ , X_new = self.predict_increment(X_inc)
+        matrix_new, _ , _, X_new = self.predict_increment(X_inc)
         self.X = X_new
         self.kernel = matrix_new
         return self
