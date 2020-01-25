@@ -68,7 +68,7 @@ class Kernel(object):
                     matrix[fill_idx, i] = i_j_cov
                     matrix[i, fill_idx] = i_j_cov
                 matrix[fill_idx, fill_idx] += self.epsilon
-            increment_kernel = matrix[X.shape[0]:, :]
+            increment_kernel = matrix[:, X.shape[0]:]
         else:
             increment_kernel = self.f_vectorized_increment(X, 
                                                            X_inc, 
@@ -78,6 +78,7 @@ class Kernel(object):
             matrix[X.shape[0]:, :] = increment_kernel.permute(1, 0)
             matrix[:, X.shape[0]:] = increment_kernel
             X_concat = torch.cat([X, X_inc], 0)
+
         # Calculate kernel only on incremented set
         X_new_kernel = self.__evaluate_matrix(X_inc)
         return matrix, (increment_kernel[:X.shape[0], :], increment_kernel[X.shape[0]:, :]), X_new_kernel, X_concat
@@ -126,7 +127,8 @@ class Kernel(object):
 class SquaredExponential(Kernel):
 
     def __init__(self, 
-                 tau, 
+                 tau = 1, 
+                 sigma = 1,
                  use_pairwise_only = False):
         tau = torch.squeeze(super().cast(tau))
 
@@ -134,7 +136,7 @@ class SquaredExponential(Kernel):
             raise ValueError('Invalid shape for tau - expected scalar, got tensor of shape {}'.format(tau.shape))
 
         def f_pairwise(x_1, x_2, params):
-            return torch.exp(-1/(2*params['tau']**2) * torch.pow(torch.norm(x_1 - x_2, p = 'fro'), 2))
+            return params['sigma']*torch.exp((-1*torch.pow(torch.norm(x_1 - x_2, p = 'fro'), 2))/(2*params['tau']**2))
             
         def f_vectorized(X, params):
             batch_size = X.shape[0] # Number of elements
@@ -146,7 +148,7 @@ class SquaredExponential(Kernel):
                      torch.pow(torch.repeat_interleave(X_right_square, batch_size, dim = -2), 2) - \
                      2*X_centre
             kernel = torch.sum(kernel, 0)
-            return torch.exp(-1/(2*params['tau']**2) * kernel)
+            return params['sigma']*torch.exp(-1/(2*params['tau']**2) * kernel)
 
         def f_vectorized_increment(X, X_inc, params):
             inc_batch_size = X_inc.shape[0]
@@ -165,19 +167,19 @@ class SquaredExponential(Kernel):
                                                                   dim = -2), 2)
             X_centre = torch.bmm(X_left_square, X_right_square)
             kernel = torch.sum(X_left_square_pow + X_right_square_pow - 2*X_centre, 0)
-            return torch.exp(-1/(2*params['tau']**2) * kernel)
+            return params['sigma']*torch.exp(-1/(2*params['tau']**2) * kernel)
 
         if use_pairwise_only:
             super().__init__(f_pairwise = f_pairwise, 
                             f_vectorized= None,
                             n_dimensions_in = None,
-                            **{'tau': tau})
+                            **{'sigma': sigma, 'tau': tau})
         else:
             super().__init__(f_pairwise = f_pairwise, 
                             f_vectorized= f_vectorized,
                             f_vectorized_increment = f_vectorized_increment,
                             n_dimensions_in = None,
-                            **{'tau': tau})           
+                            **{'sigma':sigma, 'tau': tau})           
 
 class ARDSquaredExponential(Kernel):
 

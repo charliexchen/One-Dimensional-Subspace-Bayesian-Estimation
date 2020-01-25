@@ -29,7 +29,7 @@ class GaussianProcess(object):
         return self
 
     def predict(self, X):
-        _, kernel_increment, kernel_predict , _ = self.kernel.predict_increment(X)
+        _, kernel_increment, _ , _ = self.kernel.predict_increment(X)
         k_star_k, k_star_k_star = kernel_increment
         mean = torch.mm(torch.mm(torch.transpose(k_star_k, 0, 1), self.inverse), self.labels)
         covariance = k_star_k_star + torch.eye(self.kernel.n_dim_in)*(self.sigma**2) - \
@@ -37,15 +37,25 @@ class GaussianProcess(object):
         return mean, covariance
 
 if __name__ == "__main__":
-    x = np.linspace(0, 2*np.pi, 50).reshape((-1, 1))
-    x_test = (np.random.random((20, 1))*2*np.pi).reshape((-1, 1))
+    # x = np.linspace(0, 2*np.pi, 50).reshape((-1, 1))
+    x = (np.random.random((15, 1))*2*np.pi).reshape((-1, 1))
+    x_test = np.linspace(-1, 2*np.pi+1, 50).reshape((-1, 1))
     y = np.sin(x)
     gp = GaussianProcess(
-        kernel = kernels.SquaredExponential(0.1), 
-        sigma = 0.05
+        kernel = kernels.SquaredExponential(tau = 0.5, sigma = 1, use_pairwise_only = False), 
+        sigma = 0
     ).fit(x, y)
     y_hat_mean, y_hat_covariance = gp.predict(x_test)
+    y_hat_std_diag = torch.diag(y_hat_covariance)
     plt.plot(x, y, 'r.')
-    plt.plot(x_test, y_hat_mean, 'b.')
+    plt.plot(x_test, y_hat_mean, 'b-')
+    plt.plot(x_test, np.sin(x_test), 'r-')
+    plt.fill_between(x_test.squeeze(), 
+                    y_hat_mean.squeeze() + 2*y_hat_std_diag, 
+                    y_hat_mean.squeeze() - 2*y_hat_std_diag, color = 'gray')
+    plt.legend(['Training points', 
+                'Predict function', 
+                'True function', 
+                'Confidence interval'])
     plt.show()
     pass
